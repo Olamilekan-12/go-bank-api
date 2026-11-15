@@ -1,0 +1,17 @@
+# Compiled binaries
+/bin/
+/api
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Test and coverage output
+*.out
+coverage.html
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
