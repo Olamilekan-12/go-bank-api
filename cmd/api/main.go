@@ -10,11 +10,17 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Olamilekan-12/go-bank-api/internal/config"
 	"github.com/Olamilekan-12/go-bank-api/internal/middleware"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	cfg, err := config.Load()
+	if err != nil {
+		logger.Error("invalid configuration", "error", err)
+		os.Exit(1)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	mux := http.NewServeMux()
@@ -23,14 +29,14 @@ func main() {
 	})
 
 	srv := &http.Server{
-		Addr:         ":8080",
+		Addr:         ":" + cfg.Port,
 		Handler:      middleware.Logging(logger)(mux),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 	go func() {
-		logger.Info("server starting", "addr", srv.Addr)
+		logger.Info("server starting", "addr", srv.Addr, "env", cfg.Env)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("server failed", "error", err)
 			os.Exit(1)
