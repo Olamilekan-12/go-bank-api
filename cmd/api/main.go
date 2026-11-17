@@ -3,14 +3,18 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/Olamilekan-12/go-bank-api/internal/middleware"
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	mux := http.NewServeMux()
@@ -20,24 +24,25 @@ func main() {
 
 	srv := &http.Server{
 		Addr:         ":8080",
-		Handler:      mux,
+		Handler:      middleware.Logging(logger)(mux),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 	go func() {
-		log.Println("go-bank API listening on :8080")
+		logger.Info("server starting", "addr", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatal(err)
+			logger.Error("server failed", "error", err)
+			os.Exit(1)
 		}
 	}()
 	<-ctx.Done()
-	log.Println("shutdown signal received, draining requests...")
+	logger.Info("shutdown signal received, draining requests...")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("graceful shutdown failed: %v", err)
+		logger.Error("graceful shutdown failed", "error", err)
 	}
-	log.Println("server stopped")
+	logger.Info("server stopped")
 }
